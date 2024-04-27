@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 
-#include "block_reduce.hpp"
+#include "block_scan.hpp"
 #include "common.hpp"
 
 enum class OpType {
@@ -12,7 +12,7 @@ enum class OpType {
 };
 
 template <int blockSize, typename T, OpType opType>
-__global__ void __launch_bounds__(blockSize) blockReduceKernel(T* a, std::size_t numElement, T* b) {
+__global__ void __launch_bounds__(blockSize) blockScanKernel(T* a, std::size_t numElement, T* b) {
     unsigned gtid = blockDim.x * blockIdx.x + threadIdx.x;
 
     T init;
@@ -35,16 +35,16 @@ __global__ void __launch_bounds__(blockSize) blockReduceKernel(T* a, std::size_t
 
     T res;
     if constexpr (opType == OpType::Add) {
-        res = alyx::blockReduce<blockSize>(val, init, [](T a, T b) { return a + b; });
+        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return a + b; });
     } else if constexpr (opType == OpType::Multiply) {
-        res = alyx::blockReduce<blockSize>(val, init, [](T a, T b) { return a * b; });
+        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return a * b; });
     } else if constexpr (opType == OpType::Max) {
-        res = alyx::blockReduce<blockSize>(val, init, [](T a, T b) { return max(a, b); });
+        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return max(a, b); });
     } else if constexpr (opType == OpType::Min) {
-        res = alyx::blockReduce<blockSize>(val, init, [](T a, T b) { return min(a, b); });
+        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return min(a, b); });
     }
 
-    if (threadIdx.x == 0) b[blockIdx.x] = res;
+    if (gtid < numElement) b[gtid] = res;
 }
 
 template <typename T, OpType opType>
@@ -85,14 +85,14 @@ public:
             cudaMemcpy(ad, ah.data(), numElement * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
 
         T* bd{};
-        CUDA_CHECK(cudaMalloc(&bd, gridSize * sizeof(T)));
+        CUDA_CHECK(cudaMalloc(&bd, numElement * sizeof(T)));
 
-        blockReduceKernel<blockSize, T, opType><<<gridSize, blockSize>>>(ad, numElement, bd);
+        blockScanKernel<blockSize, T, opType><<<gridSize, blockSize>>>(ad, numElement, bd);
         CUDA_CHECK(cudaDeviceSynchronize());
 
-        std::vector<T> bh(gridSize);
+        std::vector<T> bh(numElement);
         CUDA_CHECK(
-            cudaMemcpy(bh.data(), bd, gridSize * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
+            cudaMemcpy(bh.data(), bd, numElement * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
         for (std::size_t i = 0; i < bh.size(); ++i) {
             std::cout << bh[i] << " ";
         }
@@ -108,26 +108,6 @@ int main() {
         Test<int, OpType::Add> t;
         t.run();
     }
-
-    // {
-    //     Test<double, OpType::Add> t;
-    //     t.run();
-    // }
-
-    // {
-    //     Test<double, OpType::Multiply> t;
-    //     t.run();
-    // }
-
-    // {
-    //     Test<float, OpType::Max> t;
-    //     t.run();
-    // }
-
-    // {
-    //     Test<float, OpType::Min> t;
-    //     t.run();
-    // }
 
     return 0;
 }

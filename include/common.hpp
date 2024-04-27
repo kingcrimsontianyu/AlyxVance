@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>  // Runtime API
 
 #include <stdexcept>
+#include <type_traits>
 
 #define CUDA_CHECK(errCode) alyx::cudaCheck(errCode, __FILE__, __LINE__, true);
 #define CUDA_CHECK_NOTHROW(errCode) alyx::cudaCheck(errCode, __FILE__, __LINE__, false);
@@ -35,4 +36,10 @@ __forceinline__ __device__ unsigned getLaneIdx() {
 }
 
 __forceinline__ __device__ unsigned getWarpIdx() { return threadIdx.x / constant::warpSize; }
+
+template <typename T>
+requires std::is_integral_v<T>
+__forceinline__ __device__ constexpr bool isMultipleOf32(T t) {
+    return (t & 31) == 0;
+}
 }  // namespace alyx
