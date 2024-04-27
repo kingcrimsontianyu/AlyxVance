@@ -8,3 +8,7 @@ Tianyu Liu 2024
 
 This is a side project just for fun, learning, and exploration. Do not use it in production code.
 
+## Currently implemented algorithms
+
++ Reduce
++ Scan
