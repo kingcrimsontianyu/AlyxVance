@@ -217,6 +217,14 @@ __forceinline__ __device__ T blockScan(T val, T init, BinaryOp&& binaryOp) {
 
     __syncthreads();
 
+    // Warp 0 performs the final scan
+    if (0 == warpIdx) {
+        T tmp = warpScan(smem[laneIdx], binaryOp, Algo{});
+        smem[laneIdx] = tmp;
+    }
+
+    __syncthreads();
+
     // All threads in each warp reads the increment from the shared memory
     // and adjust their results
     if (warpIdx > 0) {

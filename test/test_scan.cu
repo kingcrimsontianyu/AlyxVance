@@ -54,8 +54,8 @@ public:
         CUDA_CHECK(cudaSetDevice(0));
 
         constexpr std::size_t gridSize = 2;
-        constexpr std::size_t blockSize = 64;
-        std::size_t numElement{100};
+        constexpr std::size_t blockSize = 128;
+        std::size_t numElement{200};
         std::vector<T> ah(numElement);
 
         if constexpr (opType == OpType::Add) {
