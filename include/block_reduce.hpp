@@ -13,7 +13,7 @@ __forceinline__ __device__ T warpReduce(T val, BinaryOp&& binaryOp) {
     val = binaryOp(val, __shfl_xor_sync(fullMask, val, 2));
     val = binaryOp(val, __shfl_xor_sync(fullMask, val, 1));
 
-    // Method 2:
+    // Method 2: Moving data down the lanes, i.e. src is from higher lanes
     // auto laneIdx = getLaneIdx();
     // val = binaryOp(val, __shfl_down_sync(0xffff'ffffU, val, 16));
     // val = binaryOp(val, __shfl_down_sync(0x0000'ffffU, val, 8));
