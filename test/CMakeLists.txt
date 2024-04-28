@@ -24,4 +24,15 @@ add_test(NAME alyx_test_scan_memcheck
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
          COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-scan.bin)
 
+# segmented scan
+add_executable(alyx-test-seg-scan.bin test_seg_scan.cu)
+ALYX_CONFIG_GPU_TARGET(alyx-test-seg-scan.bin)
+
+add_test(NAME alyx_test_seg_scan_basic
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ./alyx-test-seg-scan.bin)
+
+add_test(NAME alyx_test_seg_scan_memcheck
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-seg-scan.bin)
 endif()

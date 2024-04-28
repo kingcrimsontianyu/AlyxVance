@@ -5,9 +5,19 @@
 namespace alyx {
 
 namespace ScanAlgo {
+// Hillis, W.D. and Steele Jr, G.L., 1986. Data parallel algorithms. Communications of the ACM,
+// 29(12), pp.1170-1183.
+// https://dl.acm.org/doi/pdf/10.1145/7902.7903
 struct Naive {};
-struct WorkEfficient1 {};  // Mask is computed at runtime
-struct WorkEfficient2 {};  // Mask is predetermined
+
+// Blelloch, G.E., 1989. Scans as primitive parallel operations. IEEE Transactions on computers,
+// 38(11), pp.1526-1538.
+// https://people.eecs.berkeley.edu/~culler/cs262b/papers/scan89.pdf
+// Mask is computed at runtime
+struct WorkEfficient1 {};
+
+// Mask is predetermined
+struct WorkEfficient2 {};
 }  // namespace ScanAlgo
 
 template <typename T, typename BinaryOp>
@@ -18,9 +28,9 @@ __forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::Naive)
     for (int s = 1; s <= 16; s = s << 1) {
         int srcIdx = laneIdx - s;
 
-        auto res = __shfl_sync(fullMask, val, srcIdx);
+        auto otherVal = __shfl_sync(fullMask, val, srcIdx);
         if (srcIdx >= 0) {
-            val = binaryOp(val, res);
+            val = binaryOp(val, otherVal);
         }
     }
 
@@ -51,8 +61,8 @@ __forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::WorkEf
         unsigned workerMask = dstMask | srcMask;
 
         if (isDst || isSrc) {
-            auto res = __shfl_sync(workerMask, val, laneIdx - s / 2);
-            if (isDst) val = binaryOp(val, res);
+            auto otherVal = __shfl_sync(workerMask, val, laneIdx - s / 2);
+            if (isDst) val = binaryOp(val, otherVal);
         }
     }
 
@@ -80,8 +90,8 @@ __forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::WorkEf
 
             if (isDst || isSrc) {
                 int prevWorkerIdx = laneIdx - s;
-                auto res = __shfl_sync(comboMask, val, prevWorkerIdx);
-                if (isDst) val = binaryOp(val, res);
+                auto otherVal = __shfl_sync(comboMask, val, prevWorkerIdx);
+                if (isDst) val = binaryOp(val, otherVal);
             }
         }
     }
@@ -134,8 +144,8 @@ __forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::WorkEf
             int isWorker = (workerMask >> laneIdx) & 1 == 1;
             int isDst = (dstMasks[i] >> laneIdx) & 1 == 1;
             if (isWorker) {
-                auto res = __shfl_sync(workerMask, val, laneIdx - s);
-                if (isDst) val = binaryOp(val, res);
+                auto otherVal = __shfl_sync(workerMask, val, laneIdx - s);
+                if (isDst) val = binaryOp(val, otherVal);
             }
 
             s = s << 1;
@@ -181,8 +191,8 @@ __forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::WorkEf
             int isWorker = (workerMask >> laneIdx) & 1 == 1;
             int isDst = (dstMasks[i] >> laneIdx) & 1 == 1;
             if (isWorker) {
-                auto res = __shfl_sync(workerMask, val, laneIdx - s);
-                if (isDst) val = binaryOp(val, res);
+                auto otherVal = __shfl_sync(workerMask, val, laneIdx - s);
+                if (isDst) val = binaryOp(val, otherVal);
             }
 
             s = s >> 1;
@@ -198,7 +208,7 @@ __forceinline__ __device__ T blockScan(T val, T init, BinaryOp&& binaryOp) {
 
     T res = warpScan(val, binaryOp, Algo{});
 
-    __align__(sizeof(T)) volatile __shared__ T smem[constant::warpSize];
+    volatile __shared__ T smem[constant::warpSize];
 
     auto warpIdx = getWarpIdx();
     auto laneIdx = getLaneIdx();
@@ -239,6 +249,11 @@ template <int blockSize, typename T, typename BinaryOp>
 __forceinline__ __device__ T blockScan(T val, T init, BinaryOp&& binaryOp) {
     return blockScan<ScanAlgo::WorkEfficient2, blockSize, T, BinaryOp>(
         val, init, std::forward<BinaryOp>(binaryOp));
+}
+
+template <int blockSize, typename T>
+__forceinline__ __device__ T blockScan(T val) {
+    return blockScan<ScanAlgo::WorkEfficient2, blockSize>(val, T{}, [](T a, T b) { return a + b; });
 }
 
 }  // namespace alyx

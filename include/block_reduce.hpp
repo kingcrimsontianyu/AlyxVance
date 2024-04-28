@@ -29,7 +29,7 @@ __forceinline__ __device__ T blockReduce(T val, T init, BinaryOp&& binaryOp) {
 
     T res = warpReduce(val, binaryOp);
 
-    __align__(sizeof(T)) volatile __shared__ T smem[constant::warpSize];
+    volatile __shared__ T smem[constant::warpSize];
 
     auto warpIdx = getWarpIdx();
     auto laneIdx = getLaneIdx();

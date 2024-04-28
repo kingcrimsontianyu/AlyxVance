@@ -42,4 +42,10 @@ requires std::is_integral_v<T>
 __forceinline__ __device__ constexpr bool isMultipleOf32(T t) {
     return (t & 31) == 0;
 }
+
+template <typename U, typename V>
+struct Pair {
+    U first;
+    V second;
+};
 }  // namespace alyx

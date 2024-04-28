@@ -1,18 +1,17 @@
 #include <iostream>
 #include <vector>
 
-#include "block_scan.hpp"
+#include "block_seg_scan.hpp"
 #include "common.hpp"
 
 enum class OpType {
     Add,
     Multiply,
-    Max,
-    Min,
 };
 
 template <int blockSize, typename T, OpType opType>
-__global__ void __launch_bounds__(blockSize) blockScanKernel(T* a, std::size_t numElement, T* b) {
+__global__ void __launch_bounds__(blockSize)
+    blockSegScanKernel(T* a, int* flags, std::size_t numElement, T* b) {
     unsigned gtid = blockDim.x * blockIdx.x + threadIdx.x;
 
     T init;
@@ -20,31 +19,26 @@ __global__ void __launch_bounds__(blockSize) blockScanKernel(T* a, std::size_t n
         init = static_cast<T>(0);
     } else if constexpr (opType == OpType::Multiply) {
         init = static_cast<T>(1);
-    } else if constexpr (opType == OpType::Max) {
-        init = static_cast<T>(INT_MIN);
-    } else if constexpr (opType == OpType::Min) {
-        init = static_cast<T>(INT_MAX);
     }
 
     T val;
+    int flag;
     if (gtid >= numElement) {
         val = init;
+        flag = 1;
     } else {
         val = a[gtid];
+        flag = flags[gtid];
     }
 
-    T res;
+    alyx::Pair<T, int> res;
     if constexpr (opType == OpType::Add) {
-        res = alyx::blockScan<blockSize>(val);
+        res = alyx::blockSegScan<blockSize>(val, flag);
     } else if constexpr (opType == OpType::Multiply) {
-        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return a * b; });
-    } else if constexpr (opType == OpType::Max) {
-        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return max(a, b); });
-    } else if constexpr (opType == OpType::Min) {
-        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return min(a, b); });
+        res = alyx::blockSegScan<blockSize>(val, flag, init, [](T a, T b) { return a * b; });
     }
 
-    if (gtid < numElement) b[gtid] = res;
+    if (gtid < numElement) b[gtid] = res.first;
 }
 
 template <typename T, OpType opType>
@@ -66,17 +60,11 @@ public:
             for (std::size_t i = 0; i < ah.size(); ++i) {
                 ah[i] = static_cast<T>(2);
             }
-        } else if constexpr (opType == OpType::Max || opType == OpType::Min) {
-            for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(i);
-            }
+        }
 
-            std::size_t halfSize = ah.size() >> 1;
-            for (std::size_t i = 0; i < halfSize; ++i) {
-                if ((i & 1) == 1) {
-                    std::swap(ah[i], ah[ah.size() - 1 - i]);
-                }
-            }
+        std::vector<int> flagsH(numElement, 0);
+        for (std::size_t i = 0; i < flagsH.size(); ++i) {
+            if ((i % 11) == 0) flagsH[i] = 1;
         }
 
         T* ad{};
@@ -84,10 +72,16 @@ public:
         CUDA_CHECK(
             cudaMemcpy(ad, ah.data(), numElement * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
 
+        int* flagsD{};
+        CUDA_CHECK(cudaMalloc(&flagsD, numElement * sizeof(int)));
+        CUDA_CHECK(cudaMemcpy(flagsD, flagsH.data(), numElement * sizeof(int),
+                              cudaMemcpyKind::cudaMemcpyDefault));
+
         T* bd{};
         CUDA_CHECK(cudaMalloc(&bd, numElement * sizeof(T)));
 
-        blockScanKernel<blockSize, T, opType><<<gridSize, blockSize>>>(ad, numElement, bd);
+        blockSegScanKernel<blockSize, T, opType>
+            <<<gridSize, blockSize>>>(ad, flagsD, numElement, bd);
         CUDA_CHECK(cudaDeviceSynchronize());
 
         std::vector<T> bh(numElement);
