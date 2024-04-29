@@ -11,4 +11,13 @@ This is a side project just for fun, learning, and exploration. Do not use it in
 ## Currently implemented algorithms
 
 + Reduce
-+ Scan
+
+  + Support predefined and user-defined binary operators
+
++ Generic scan
+
+  + Support predefined and user-defined binary operators
+
++ Generic segmented scan
+
+  + Support predefined and user-defined binary operators

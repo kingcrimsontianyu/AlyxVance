@@ -21,7 +21,7 @@ struct WorkEfficient2 {};
 }  // namespace ScanAlgo
 
 template <typename T, typename BinaryOp>
-__forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::Naive) {
+__forceinline__ __device__ T warpScan(T val, BinaryOp&& binaryOp, ScanAlgo::Naive) {
     auto laneIdx = getLaneIdx();
 
     unsigned fullMask{0xffff'ffff};
@@ -38,7 +38,7 @@ __forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::Naive)
 }
 
 template <typename T, typename BinaryOp>
-__forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::WorkEfficient1) {
+__forceinline__ __device__ T warpScan(T val, BinaryOp&& binaryOp, ScanAlgo::WorkEfficient1) {
     auto laneIdx = getLaneIdx();
     unsigned fullMask{0xffff'ffffU};
 
@@ -99,7 +99,7 @@ __forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::WorkEf
 }
 
 template <typename T, typename BinaryOp>
-__forceinline__ __device__ T warpScan(T val, BinaryOp binaryOp, ScanAlgo::WorkEfficient2) {
+__forceinline__ __device__ T warpScan(T val, BinaryOp&& binaryOp, ScanAlgo::WorkEfficient2) {
     auto laneIdx = getLaneIdx();
 
     // Upsweep

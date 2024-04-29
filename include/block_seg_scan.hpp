@@ -6,7 +6,7 @@ namespace alyx {
 
 // See warpScan() for more implementation details.
 template <typename T, typename BinaryOp>
-__forceinline__ __device__ Pair<T, int> warpSegScan(T val, int flag, BinaryOp binaryOp) {
+__forceinline__ __device__ Pair<T, int> warpSegScan(T val, int flag, BinaryOp&& binaryOp) {
     auto laneIdx = getLaneIdx();
     Pair<T, int> res{val, flag};
 
@@ -102,7 +102,7 @@ __forceinline__ __device__ Pair<T, int> blockSegScan(T val, int flag, T init, Bi
     // and adjust their results
     if (warpIdx > 0) {
         Pair<T, int> inc{smemVal[warpIdx - 1], smemFlag[warpIdx - 1]};
-        res = binaryOp(res, inc);
+        res = binaryOp(inc, res);
     }
 
     return res;

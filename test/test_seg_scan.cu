@@ -64,7 +64,7 @@ public:
 
         std::vector<int> flagsH(numElement, 0);
         for (std::size_t i = 0; i < flagsH.size(); ++i) {
-            if ((i % 11) == 0) flagsH[i] = 1;
+            if ((i % 15) == 0) flagsH[i] = 1;
         }
 
         T* ad{};
