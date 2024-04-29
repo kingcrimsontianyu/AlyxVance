@@ -6,9 +6,9 @@ namespace alyx {
 
 // See warpScan() for more implementation details.
 template <typename T, typename BinaryOp>
-__forceinline__ __device__ Pair<T, int> warpSegScan(T val, int flag, BinaryOp&& binaryOp) {
+__forceinline__ __device__ SegPair<T> warpSegScan(T val, int flag, BinaryOp&& binaryOp) {
     auto laneIdx = getLaneIdx();
-    Pair<T, int> res{val, flag};
+    SegPair<T> res{val, flag};
 
     {
         constexpr int n{5};
@@ -62,7 +62,7 @@ __forceinline__ __device__ Pair<T, int> warpSegScan(T val, int flag, BinaryOp&& 
 }
 
 template <int blockSize, typename T, typename BinaryOp>
-__forceinline__ __device__ Pair<T, int> blockSegScan(T val, int flag, T init, BinaryOp&& binaryOp) {
+__forceinline__ __device__ SegPair<T> blockSegScan(T val, int flag, T init, BinaryOp&& binaryOp) {
     static_assert(isMultipleOf32(blockSize));
 
     auto res = warpSegScan(val, flag, binaryOp);
@@ -101,22 +101,18 @@ __forceinline__ __device__ Pair<T, int> blockSegScan(T val, int flag, T init, Bi
     // All threads in each warp reads the increment from the shared memory
     // and adjust their results
     if (warpIdx > 0) {
-        Pair<T, int> inc{smemVal[warpIdx - 1], smemFlag[warpIdx - 1]};
+        SegPair<T> inc{smemVal[warpIdx - 1], smemFlag[warpIdx - 1]};
         res = binaryOp(inc, res);
     }
 
     return res;
 }
 
-template <int blockSize, typename T>
-__forceinline__ __device__ Pair<T, int> blockSegScan(T val, int flag) {
-    using TPair = Pair<T, int>;
-    return blockSegScan<blockSize>(val, flag, T{}, [](TPair a, TPair b) {
-        TPair res;
-        res.first = a.first * (1 - b.second) + b.first;
-        res.second = a.second | b.second;
-        return res;
-    });
+// TODO: Use concepts to constrain TAlyxBinaryOp, as soon as nvcc bug is resolved.
+template <int blockSize, typename T, typename TAlyxBinaryOp>
+__forceinline__ __device__ SegPair<T> blockSegScan(T val, int flag, TAlyxBinaryOp&& alyxBinaryOp) {
+    return blockSegScan<blockSize>(val, flag, TAlyxBinaryOp::init.first,
+                                   std::forward<TAlyxBinaryOp>(alyxBinaryOp));
 }
 
 }  // namespace alyx

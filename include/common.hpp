@@ -3,6 +3,7 @@
 #include <cuda.h>          // Driver API
 #include <cuda_runtime.h>  // Runtime API
 
+#include <cuda/std/limits>
 #include <stdexcept>
 #include <type_traits>
 
@@ -48,4 +49,70 @@ struct Pair {
     U first;
     V second;
 };
+
+template <typename T>
+using SegPair = Pair<T, int>;
+
+// Built-in binary operations
+namespace AlyxBinaryOp {
+template <typename T>
+struct Add {
+    __forceinline__ __device__ T operator()(T a, T b) { return a + b; }
+    static constexpr T init{static_cast<T>(0)};
+};
+
+template <typename T>
+struct Multiply {
+    __forceinline__ __device__ T operator()(T a, T b) { return a * b; }
+    static constexpr T init{static_cast<T>(1)};
+};
+
+template <typename T>
+struct Max {
+    __forceinline__ __device__ T operator()(T a, T b) { return max(a, b); }
+    static constexpr T init{static_cast<T>(cuda::std::numeric_limits<T>::min())};
+};
+
+template <typename T>
+struct Min {
+    __forceinline__ __device__ T operator()(T a, T b) { return min(a, b); }
+    static constexpr T init{static_cast<T>(cuda::std::numeric_limits<T>::max())};
+};
+
+template <typename T>
+requires std::is_arithmetic_v<T>
+struct SegAdd {
+    __forceinline__ __device__ SegPair<T> operator()(SegPair<T> a, SegPair<T> b) {
+        SegPair<T> res;
+        res.first = a.first * (1 - b.second) + b.first;
+        res.second = a.second | b.second;
+        return res;
+    }
+    static constexpr SegPair<T> init{static_cast<T>(0), 1};
+};
+
+template <typename T>
+requires std::is_arithmetic_v<T>
+struct SegMultiply {
+    __forceinline__ __device__ SegPair<T> operator()(SegPair<T> a, SegPair<T> b) {
+        SegPair<T> res;
+        res.first = b.second == 1 ? b.first : a.first * b.first;
+        res.second = a.second | b.second;
+        return res;
+    }
+    static constexpr SegPair<T> init{static_cast<T>(1), 1};
+};
+
+template <typename T>
+struct SegCopy {
+    __forceinline__ __device__ SegPair<T> operator()(SegPair<T> a, SegPair<T> b) {
+        SegPair<T> res;
+        res.first = b.second == 1 ? b.first : a.first;
+        res.second = a.second | b.second;
+        return res;
+    }
+    static constexpr SegPair<T> init{static_cast<T>(0), 1};
+};
+}  // namespace AlyxBinaryOp
+
 }  // namespace alyx

@@ -7,6 +7,7 @@
 enum class OpType {
     Add,
     Multiply,
+    Copy,
 };
 
 template <int blockSize, typename T, OpType opType>
@@ -14,28 +15,36 @@ __global__ void __launch_bounds__(blockSize)
     blockSegScanKernel(T* a, int* flags, std::size_t numElement, T* b) {
     unsigned gtid = blockDim.x * blockIdx.x + threadIdx.x;
 
-    T init;
+    T initVal;
+    int initFlag;
     if constexpr (opType == OpType::Add) {
-        init = static_cast<T>(0);
+        initVal = alyx::AlyxBinaryOp::SegAdd<T>::init.first;
+        initFlag = alyx::AlyxBinaryOp::SegAdd<T>::init.second;
     } else if constexpr (opType == OpType::Multiply) {
-        init = static_cast<T>(1);
+        initVal = alyx::AlyxBinaryOp::SegMultiply<T>::init.first;
+        initFlag = alyx::AlyxBinaryOp::SegMultiply<T>::init.second;
+    } else if constexpr (opType == OpType::Copy) {
+        initVal = alyx::AlyxBinaryOp::SegCopy<T>::init.first;
+        initFlag = alyx::AlyxBinaryOp::SegCopy<T>::init.second;
     }
 
     T val;
     int flag;
     if (gtid >= numElement) {
-        val = init;
-        flag = 1;
+        val = initVal;
+        flag = initFlag;
     } else {
         val = a[gtid];
         flag = flags[gtid];
     }
 
-    alyx::Pair<T, int> res;
+    alyx::SegPair<T> res;
     if constexpr (opType == OpType::Add) {
-        res = alyx::blockSegScan<blockSize>(val, flag);
+        res = alyx::blockSegScan<blockSize>(val, flag, alyx::AlyxBinaryOp::SegAdd<T>{});
     } else if constexpr (opType == OpType::Multiply) {
-        res = alyx::blockSegScan<blockSize>(val, flag, init, [](T a, T b) { return a * b; });
+        res = alyx::blockSegScan<blockSize>(val, flag, alyx::AlyxBinaryOp::SegMultiply<T>{});
+    } else if constexpr (opType == OpType::Copy) {
+        res = alyx::blockSegScan<blockSize>(val, flag, alyx::AlyxBinaryOp::SegCopy<T>{});
     }
 
     if (gtid < numElement) b[gtid] = res.first;
@@ -59,6 +68,10 @@ public:
         } else if constexpr (opType == OpType::Multiply) {
             for (std::size_t i = 0; i < ah.size(); ++i) {
                 ah[i] = static_cast<T>(2);
+            }
+        } else if constexpr (opType == OpType::Copy) {
+            for (std::size_t i = 0; i < ah.size(); ++i) {
+                ah[i] = static_cast<T>(i + 1);
             }
         }
 
@@ -90,7 +103,7 @@ public:
         for (std::size_t i = 0; i < bh.size(); ++i) {
             std::cout << bh[i] << " ";
         }
-        std::cout << "\n";
+        std::cout << "\n\n";
 
         CUDA_CHECK(cudaFree(ad));
         CUDA_CHECK(cudaFree(bd));
@@ -100,6 +113,16 @@ public:
 int main() {
     {
         Test<int, OpType::Add> t;
+        t.run();
+    }
+
+    {
+        Test<int, OpType::Multiply> t;
+        t.run();
+    }
+
+    {
+        Test<double, OpType::Copy> t;
         t.run();
     }
 

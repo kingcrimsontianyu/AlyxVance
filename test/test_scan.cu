@@ -17,13 +17,13 @@ __global__ void __launch_bounds__(blockSize) blockScanKernel(T* a, std::size_t n
 
     T init;
     if constexpr (opType == OpType::Add) {
-        init = static_cast<T>(0);
+        init = alyx::AlyxBinaryOp::Add<T>::init;
     } else if constexpr (opType == OpType::Multiply) {
-        init = static_cast<T>(1);
+        init = alyx::AlyxBinaryOp::Multiply<T>::init;
     } else if constexpr (opType == OpType::Max) {
-        init = static_cast<T>(INT_MIN);
+        init = alyx::AlyxBinaryOp::Max<T>::init;
     } else if constexpr (opType == OpType::Min) {
-        init = static_cast<T>(INT_MAX);
+        init = alyx::AlyxBinaryOp::Min<T>::init;
     }
 
     T val;
@@ -35,13 +35,13 @@ __global__ void __launch_bounds__(blockSize) blockScanKernel(T* a, std::size_t n
 
     T res;
     if constexpr (opType == OpType::Add) {
-        res = alyx::blockScan<blockSize>(val);
+        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Add<T>{});
     } else if constexpr (opType == OpType::Multiply) {
-        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return a * b; });
+        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Multiply<T>{});
     } else if constexpr (opType == OpType::Max) {
-        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return max(a, b); });
+        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Max<T>{});
     } else if constexpr (opType == OpType::Min) {
-        res = alyx::blockScan<blockSize>(val, init, [](T a, T b) { return min(a, b); });
+        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Min<T>{});
     }
 
     if (gtid < numElement) b[gtid] = res;
@@ -68,14 +68,7 @@ public:
             }
         } else if constexpr (opType == OpType::Max || opType == OpType::Min) {
             for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(i);
-            }
-
-            std::size_t halfSize = ah.size() >> 1;
-            for (std::size_t i = 0; i < halfSize; ++i) {
-                if ((i & 1) == 1) {
-                    std::swap(ah[i], ah[ah.size() - 1 - i]);
-                }
+                ah[i] = static_cast<T>(i + 1);
             }
         }
 
@@ -96,7 +89,7 @@ public:
         for (std::size_t i = 0; i < bh.size(); ++i) {
             std::cout << bh[i] << " ";
         }
-        std::cout << "\n";
+        std::cout << "\n\n";
 
         CUDA_CHECK(cudaFree(ad));
         CUDA_CHECK(cudaFree(bd));
@@ -109,5 +102,19 @@ int main() {
         t.run();
     }
 
+    {
+        Test<double, OpType::Multiply> t;
+        t.run();
+    }
+
+    {
+        Test<int, OpType::Max> t;
+        t.run();
+    }
+
+    {
+        Test<int, OpType::Min> t;
+        t.run();
+    }
     return 0;
 }

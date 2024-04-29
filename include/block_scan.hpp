@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cuda/std/limits>
+
 #include "common.hpp"
 
 namespace alyx {
@@ -247,13 +249,15 @@ __forceinline__ __device__ T blockScan(T val, T init, BinaryOp&& binaryOp) {
 
 template <int blockSize, typename T, typename BinaryOp>
 __forceinline__ __device__ T blockScan(T val, T init, BinaryOp&& binaryOp) {
-    return blockScan<ScanAlgo::WorkEfficient2, blockSize, T, BinaryOp>(
-        val, init, std::forward<BinaryOp>(binaryOp));
+    return blockScan<ScanAlgo::WorkEfficient2, blockSize>(val, init,
+                                                          std::forward<BinaryOp>(binaryOp));
 }
 
-template <int blockSize, typename T>
-__forceinline__ __device__ T blockScan(T val) {
-    return blockScan<ScanAlgo::WorkEfficient2, blockSize>(val, T{}, [](T a, T b) { return a + b; });
+// TODO: Use concepts to constrain TAlyxBinaryOp, as soon as nvcc bug is resolved.
+template <int blockSize, typename T, typename TAlyxBinaryOp>
+__forceinline__ __device__ T blockScan(T val, TAlyxBinaryOp&& alyxBinaryOp) {
+    return blockScan<ScanAlgo::WorkEfficient2, blockSize>(
+        val, TAlyxBinaryOp::init, std::forward<TAlyxBinaryOp>(alyxBinaryOp));
 }
 
 }  // namespace alyx

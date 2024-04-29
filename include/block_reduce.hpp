@@ -3,6 +3,7 @@
 #include "common.hpp"
 
 namespace alyx {
+
 template <typename T, typename BinaryOp>
 __forceinline__ __device__ T warpReduce(T val, BinaryOp&& binaryOp) {
     // Method 1: Use bufferfly shuffle for convenience
@@ -62,4 +63,12 @@ __forceinline__ __device__ T blockReduce(T val, T init, BinaryOp&& binaryOp) {
 
     return ans;
 }
+
+// TODO: Use concepts to constrain TAlyxBinaryOp, as soon as nvcc bug is resolved.
+template <int blockSize, typename T, typename TAlyxBinaryOp>
+__forceinline__ __device__ T blockReduce(T val, TAlyxBinaryOp&& alyxBinaryOp) {
+    return blockReduce<blockSize>(val, TAlyxBinaryOp::init,
+                                  std::forward<TAlyxBinaryOp>(alyxBinaryOp));
+}
+
 }  // namespace alyx
