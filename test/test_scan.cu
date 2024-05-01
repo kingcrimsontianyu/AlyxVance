@@ -1,53 +1,27 @@
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 #include "block_scan.hpp"
 #include "common.hpp"
 
-enum class OpType {
-    Add,
-    Multiply,
-    Max,
-    Min,
-};
-
-template <int blockSize, typename T, OpType opType>
+template <int blockSize, typename T, typename TAlyxBinaryOp>
 __global__ void __launch_bounds__(blockSize) blockScanKernel(T* a, std::size_t numElement, T* b) {
     unsigned gtid = blockDim.x * blockIdx.x + threadIdx.x;
 
-    T init;
-    if constexpr (opType == OpType::Add) {
-        init = alyx::AlyxBinaryOp::Add<T>::init;
-    } else if constexpr (opType == OpType::Multiply) {
-        init = alyx::AlyxBinaryOp::Multiply<T>::init;
-    } else if constexpr (opType == OpType::Max) {
-        init = alyx::AlyxBinaryOp::Max<T>::init;
-    } else if constexpr (opType == OpType::Min) {
-        init = alyx::AlyxBinaryOp::Min<T>::init;
-    }
-
     T val;
     if (gtid >= numElement) {
-        val = init;
+        val = TAlyxBinaryOp::init;
     } else {
         val = a[gtid];
     }
 
-    T res;
-    if constexpr (opType == OpType::Add) {
-        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Add<T>{});
-    } else if constexpr (opType == OpType::Multiply) {
-        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Multiply<T>{});
-    } else if constexpr (opType == OpType::Max) {
-        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Max<T>{});
-    } else if constexpr (opType == OpType::Min) {
-        res = alyx::blockScan<blockSize>(val, alyx::AlyxBinaryOp::Min<T>{});
-    }
+    T res = alyx::blockScan<blockSize>(val, TAlyxBinaryOp{});
 
     if (gtid < numElement) b[gtid] = res;
 }
 
-template <typename T, OpType opType>
+template <typename T, typename TAlyxBinaryOp>
 class Test {
 public:
     void run() {
@@ -58,18 +32,13 @@ public:
         std::size_t numElement{200};
         std::vector<T> ah(numElement);
 
-        if constexpr (opType == OpType::Add) {
-            for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(1);
-            }
-        } else if constexpr (opType == OpType::Multiply) {
-            for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(2);
-            }
-        } else if constexpr (opType == OpType::Max || opType == OpType::Min) {
-            for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(i + 1);
-            }
+        if constexpr (std::is_same_v<TAlyxBinaryOp, alyx::AlyxBinaryOp::Add<T>>) {
+            std::fill(ah.begin(), ah.end(), static_cast<T>(1));
+        } else if constexpr (std::is_same_v<TAlyxBinaryOp, alyx::AlyxBinaryOp::Multiply<T>>) {
+            std::fill(ah.begin(), ah.end(), static_cast<T>(2));
+        } else if constexpr (std::is_same_v<TAlyxBinaryOp, alyx::AlyxBinaryOp::Max<T>> ||
+                             std::is_same_v<TAlyxBinaryOp, alyx::AlyxBinaryOp::Min<T>>) {
+            std::iota(ah.begin(), ah.end(), static_cast<T>(1));
         }
 
         T* ad{};
@@ -80,7 +49,7 @@ public:
         T* bd{};
         CUDA_CHECK(cudaMalloc(&bd, numElement * sizeof(T)));
 
-        blockScanKernel<blockSize, T, opType><<<gridSize, blockSize>>>(ad, numElement, bd);
+        blockScanKernel<blockSize, T, TAlyxBinaryOp><<<gridSize, blockSize>>>(ad, numElement, bd);
         CUDA_CHECK(cudaDeviceSynchronize());
 
         std::vector<T> bh(numElement);
@@ -98,22 +67,22 @@ public:
 
 int main() {
     {
-        Test<int, OpType::Add> t;
+        Test<int, alyx::AlyxBinaryOp::Add<int>> t;
         t.run();
     }
 
     {
-        Test<double, OpType::Multiply> t;
+        Test<double, alyx::AlyxBinaryOp::Multiply<double>> t;
         t.run();
     }
 
     {
-        Test<int, OpType::Max> t;
+        Test<int, alyx::AlyxBinaryOp::Max<int>> t;
         t.run();
     }
 
     {
-        Test<int, OpType::Min> t;
+        Test<int, alyx::AlyxBinaryOp::Min<int>> t;
         t.run();
     }
     return 0;

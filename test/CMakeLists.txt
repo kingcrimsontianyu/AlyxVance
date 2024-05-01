@@ -35,4 +35,16 @@ add_test(NAME alyx_test_seg_scan_basic
 add_test(NAME alyx_test_seg_scan_memcheck
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
          COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-seg-scan.bin)
+
+# merge sort
+add_executable(alyx-test-mergesort.bin test_mergesort.cu)
+ALYX_CONFIG_GPU_TARGET(alyx-test-mergesort.bin)
+
+add_test(NAME alyx_test_mergesort_basic
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ./alyx-test-mergesort.bin)
+
+add_test(NAME alyx_test_mergesort_memcheck
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-mergesort.bin)
 endif()

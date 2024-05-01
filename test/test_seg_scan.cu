@@ -1,56 +1,31 @@
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 #include "block_seg_scan.hpp"
 #include "common.hpp"
 
-enum class OpType {
-    Add,
-    Multiply,
-    Copy,
-};
-
-template <int blockSize, typename T, OpType opType>
+template <int blockSize, typename T, typename TAlyxBinaryOp>
 __global__ void __launch_bounds__(blockSize)
     blockSegScanKernel(T* a, int* flags, std::size_t numElement, T* b) {
     unsigned gtid = blockDim.x * blockIdx.x + threadIdx.x;
 
-    T initVal;
-    int initFlag;
-    if constexpr (opType == OpType::Add) {
-        initVal = alyx::AlyxBinaryOp::SegAdd<T>::init.first;
-        initFlag = alyx::AlyxBinaryOp::SegAdd<T>::init.second;
-    } else if constexpr (opType == OpType::Multiply) {
-        initVal = alyx::AlyxBinaryOp::SegMultiply<T>::init.first;
-        initFlag = alyx::AlyxBinaryOp::SegMultiply<T>::init.second;
-    } else if constexpr (opType == OpType::Copy) {
-        initVal = alyx::AlyxBinaryOp::SegCopy<T>::init.first;
-        initFlag = alyx::AlyxBinaryOp::SegCopy<T>::init.second;
-    }
-
     T val;
     int flag;
     if (gtid >= numElement) {
-        val = initVal;
-        flag = initFlag;
+        val = TAlyxBinaryOp::init.first;
+        flag = TAlyxBinaryOp::init.second;
     } else {
         val = a[gtid];
         flag = flags[gtid];
     }
 
-    alyx::SegPair<T> res;
-    if constexpr (opType == OpType::Add) {
-        res = alyx::blockSegScan<blockSize>(val, flag, alyx::AlyxBinaryOp::SegAdd<T>{});
-    } else if constexpr (opType == OpType::Multiply) {
-        res = alyx::blockSegScan<blockSize>(val, flag, alyx::AlyxBinaryOp::SegMultiply<T>{});
-    } else if constexpr (opType == OpType::Copy) {
-        res = alyx::blockSegScan<blockSize>(val, flag, alyx::AlyxBinaryOp::SegCopy<T>{});
-    }
+    alyx::SegPair<T> res = alyx::blockSegScan<blockSize>(val, flag, TAlyxBinaryOp{});
 
     if (gtid < numElement) b[gtid] = res.first;
 }
 
-template <typename T, OpType opType>
+template <typename T, typename TAlyxBinaryOp>
 class Test {
 public:
     void run() {
@@ -61,18 +36,12 @@ public:
         std::size_t numElement{200};
         std::vector<T> ah(numElement);
 
-        if constexpr (opType == OpType::Add) {
-            for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(1);
-            }
-        } else if constexpr (opType == OpType::Multiply) {
-            for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(2);
-            }
-        } else if constexpr (opType == OpType::Copy) {
-            for (std::size_t i = 0; i < ah.size(); ++i) {
-                ah[i] = static_cast<T>(i + 1);
-            }
+        if constexpr (std::is_same_v<TAlyxBinaryOp, alyx::AlyxBinaryOp::SegAdd<T>>) {
+            std::fill(ah.begin(), ah.end(), static_cast<T>(1));
+        } else if constexpr (std::is_same_v<TAlyxBinaryOp, alyx::AlyxBinaryOp::SegMultiply<T>>) {
+            std::fill(ah.begin(), ah.end(), static_cast<T>(2));
+        } else if constexpr (std::is_same_v<TAlyxBinaryOp, alyx::AlyxBinaryOp::SegCopy<T>>) {
+            std::iota(ah.begin(), ah.end(), static_cast<T>(1));
         }
 
         std::vector<int> flagsH(numElement, 0);
@@ -93,7 +62,7 @@ public:
         T* bd{};
         CUDA_CHECK(cudaMalloc(&bd, numElement * sizeof(T)));
 
-        blockSegScanKernel<blockSize, T, opType>
+        blockSegScanKernel<blockSize, T, TAlyxBinaryOp>
             <<<gridSize, blockSize>>>(ad, flagsD, numElement, bd);
         CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -112,17 +81,17 @@ public:
 
 int main() {
     {
-        Test<int, OpType::Add> t;
+        Test<int, alyx::AlyxBinaryOp::SegAdd<int>> t;
         t.run();
     }
 
     {
-        Test<int, OpType::Multiply> t;
+        Test<int, alyx::AlyxBinaryOp::SegMultiply<int>> t;
         t.run();
     }
 
     {
-        Test<double, OpType::Copy> t;
+        Test<double, alyx::AlyxBinaryOp::SegCopy<double>> t;
         t.run();
     }
 
