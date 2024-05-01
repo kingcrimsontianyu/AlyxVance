@@ -46,33 +46,46 @@ template <int blockSize, typename T, typename Comp>
 __forceinline__ __device__ T blockMergeSort(T val, Comp&& comp) {
     static_assert(isMultipleOf32(blockSize));
 
-    volatile __shared__ T smem[blockSize];
+    volatile __shared__ T smemA[blockSize];
+    volatile __shared__ T smemB[blockSize];
 
-    smem[threadIdx.x] = val;
+    smemA[threadIdx.x] = val;
+
+    auto* smemIn = smemA;
+    auto* smemOut = smemB;
 
     __syncthreads();
 
 #pragma unroll
     for (int s = 1; s < blockSize; s = s << 1) {
-        int isLeftGroup = (threadIdx.x & ((s << 1) - 1)) < s;
-        int groupIdx = threadIdx.x / s;
+        int mergeGroupSize = s << 1;
+        int isLeftGroup = (threadIdx.x & (mergeGroupSize - 1)) < s;
+        int groupStartIdx = threadIdx.x & -s;
+        int mergeGroupStartIdx = threadIdx.x & -mergeGroupSize;
 
-        int tmp{s * groupIdx};
-        int startIdx = isLeftGroup ? (tmp + s) : (tmp - s);
-        int endIdx = startIdx + s - 1;
+        int spouseGroupStartIdx = isLeftGroup ? (groupStartIdx + s) : (groupStartIdx - s);
+        auto* spouseGroupLeftBound = smemIn + spouseGroupStartIdx;
+        auto* spouseGroupRightBound = spouseGroupLeftBound + s - 1;
 
-        int target = smem[threadIdx.x];
-        int otherGroupRank = isLeftGroup ? lowerBound(smem + startIdx, smem + endIdx, target)
-                                         : upperBound(smem + startIdx, smem + endIdx, target);
+        int target = smemIn[threadIdx.x];
+        int otherGroupRank = isLeftGroup
+                                 ? lowerBound(spouseGroupLeftBound, spouseGroupRightBound, target)
+                                 : upperBound(spouseGroupLeftBound, spouseGroupRightBound, target);
 
         int selfGroupRank = threadIdx.x & (s - 1);
         int finalRank{selfGroupRank + otherGroupRank};
-        smem[finalRank] = target;
+        smemOut[mergeGroupStartIdx + finalRank] = target;
+
+        if (s != (blockSize >> 1)) {
+            auto* smemInCached = smemIn;
+            smemIn = smemOut;
+            smemOut = smemInCached;
+        }
 
         __syncthreads();
     }
 
-    return smem[threadIdx.x];
+    return smemOut[threadIdx.x];
 }
 
 // TODO: Use concepts to constrain TAlyxBinaryOp, as soon as nvcc bug is resolved.

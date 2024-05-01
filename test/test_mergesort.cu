@@ -20,7 +20,7 @@ public:
         CUDA_CHECK(cudaSetDevice(0));
 
         constexpr std::size_t gridSize = 1;
-        constexpr std::size_t blockSize = 32;
+        constexpr std::size_t blockSize = 128;
         std::size_t numElement{gridSize * blockSize};
         std::vector<T> ah(numElement);
 
@@ -38,7 +38,7 @@ public:
         CUDA_CHECK(cudaDeviceSynchronize());
 
         CUDA_CHECK(
-            cudaMemcpy(ah.data(), ad, gridSize * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
+            cudaMemcpy(ah.data(), ad, numElement * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
         for (std::size_t i = 0; i < ah.size(); ++i) {
             std::cout << ah[i] << " ";
         }
