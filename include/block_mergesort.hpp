@@ -4,15 +4,15 @@
 
 namespace alyx {
 
-template <typename T, typename Iter>
-__forceinline__ __device__ int lowerBound(Iter start, Iter end, const T& target) {
+template <typename T, typename Iter, typename Comp>
+__forceinline__ __device__ int lowerBound(Iter start, Iter end, const T& target, Comp&& comp) {
     int left = 0;
     int right = end - start;
     int ans{right + 1};
 
     while (left <= right) {
         int mid = left + ((right - left) >> 1);
-        if (*(start + mid) < target) {
+        if (comp(*(start + mid), target)) {
             left = mid + 1;
         } else {
             right = mid - 1;
@@ -23,15 +23,15 @@ __forceinline__ __device__ int lowerBound(Iter start, Iter end, const T& target)
     return ans;
 }
 
-template <typename T, typename Iter>
-__forceinline__ __device__ int upperBound(Iter start, Iter end, const T& target) {
+template <typename T, typename Iter, typename Comp>
+__forceinline__ __device__ int upperBound(Iter start, Iter end, const T& target, Comp&& comp) {
     int left = 0;
     int right = end - start;
     int ans{0};
 
     while (left <= right) {
         int mid = left + ((right - left) >> 1);
-        if (*(start + mid) > target) {
+        if (comp(target, *(start + mid))) {
             right = mid - 1;
         } else {
             left = mid + 1;
@@ -46,8 +46,8 @@ template <int blockSize, typename T, typename Comp>
 __forceinline__ __device__ T blockMergeSort(T val, Comp&& comp) {
     static_assert(isMultipleOf32(blockSize));
 
-    volatile __shared__ T smemA[blockSize];
-    volatile __shared__ T smemB[blockSize];
+    __shared__ T smemA[blockSize];
+    __shared__ T smemB[blockSize];
 
     smemA[threadIdx.x] = val;
 
@@ -68,9 +68,9 @@ __forceinline__ __device__ T blockMergeSort(T val, Comp&& comp) {
         auto* spouseGroupRightBound = spouseGroupLeftBound + s - 1;
 
         int target = smemIn[threadIdx.x];
-        int otherGroupRank = isLeftGroup
-                                 ? lowerBound(spouseGroupLeftBound, spouseGroupRightBound, target)
-                                 : upperBound(spouseGroupLeftBound, spouseGroupRightBound, target);
+        int otherGroupRank =
+            isLeftGroup ? lowerBound(spouseGroupLeftBound, spouseGroupRightBound, target, comp)
+                        : upperBound(spouseGroupLeftBound, spouseGroupRightBound, target, comp);
 
         int selfGroupRank = threadIdx.x & (s - 1);
         int finalRank{selfGroupRank + otherGroupRank};

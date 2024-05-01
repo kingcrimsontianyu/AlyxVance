@@ -115,4 +115,18 @@ struct SegCopy {
 };
 }  // namespace AlyxBinaryOp
 
+template <typename T>
+struct Less {
+    __forceinline__ __device__ constexpr bool operator()(const T& a, const T& b) const {
+        return a < b;
+    }
+};
+
+template <typename T>
+struct Greater {
+    __forceinline__ __device__ constexpr bool operator()(const T& a, const T& b) const {
+        return a > b;
+    }
+};
+
 }  // namespace alyx

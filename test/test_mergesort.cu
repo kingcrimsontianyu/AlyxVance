@@ -6,14 +6,14 @@
 #include "block_mergesort.hpp"
 #include "common.hpp"
 
-template <int blockSize, typename T>
+template <int blockSize, typename T, typename Comp>
 __global__ void __launch_bounds__(blockSize) blockMergeSortKernel(T* a) {
     unsigned gtid = blockDim.x * blockIdx.x + threadIdx.x;
 
-    a[gtid] = alyx::blockMergeSort<blockSize>(a[gtid]);
+    a[gtid] = alyx::blockMergeSort<blockSize, T, Comp>(a[gtid], Comp{});
 }
 
-template <typename T>
+template <typename T, typename Comp>
 class Test {
 public:
     void run() {
@@ -34,7 +34,7 @@ public:
         CUDA_CHECK(
             cudaMemcpy(ad, ah.data(), numElement * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
 
-        blockMergeSortKernel<blockSize, T><<<gridSize, blockSize>>>(ad);
+        blockMergeSortKernel<blockSize, T, Comp><<<gridSize, blockSize>>>(ad);
         CUDA_CHECK(cudaDeviceSynchronize());
 
         CUDA_CHECK(
@@ -50,7 +50,12 @@ public:
 
 int main() {
     {
-        Test<int> t;
+        Test<int, alyx::Less<int>> t;
+        t.run();
+    }
+
+    {
+        Test<double, alyx::Greater<int>> t;
         t.run();
     }
 
