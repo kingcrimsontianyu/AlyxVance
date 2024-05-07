@@ -88,10 +88,9 @@ __forceinline__ __device__ T blockMergeSort(T val, Comp&& comp) {
     return smemOut[threadIdx.x];
 }
 
-// TODO: Use concepts to constrain TAlyxBinaryOp, as soon as nvcc bug is resolved.
 template <int blockSize, typename T>
 __forceinline__ __device__ T blockMergeSort(T val) {
-    return blockMergeSort<blockSize>(val, [](T a, T b) { return a < b; });
+    return blockMergeSort<blockSize>(val, Less<T>{});
 }
 
 }  // namespace alyx
