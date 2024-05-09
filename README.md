@@ -1,4 +1,4 @@
-# AlyxVance
+# AlyxVance (WIP)
 
 Tianyu Liu 2024
 
@@ -21,3 +21,5 @@ This is a side project just for fun, learning, and exploration. Do not use it in
 + Generic segmented scan
 
   + Support predefined and user-defined binary operators
+
++ Mergesort
