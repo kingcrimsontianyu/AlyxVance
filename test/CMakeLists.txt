@@ -1,4 +1,6 @@
-if(BUILD_TESTING)
+if(NOT BUILD_TESTING)
+    return()
+endif()
 
 # reduce
 add_executable(alyx-test-reduce.bin test_reduce.cu)
@@ -47,4 +49,19 @@ add_test(NAME alyx_test_mergesort_basic
 add_test(NAME alyx_test_mergesort_memcheck
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
          COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-mergesort.bin)
-endif()
+
+# rank sort
+add_executable(alyx-test-ranksort.bin test_ranksort.cu)
+ALYX_CONFIG_GPU_TARGET(alyx-test-ranksort.bin)
+
+add_test(NAME alyx_test_ranksort_basic
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ./alyx-test-ranksort.bin)
+
+add_test(NAME alyx_test_ranksort_memcheck
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-ranksort.bin)
+
+
+
+

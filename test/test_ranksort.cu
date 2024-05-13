@@ -3,14 +3,14 @@
 #include <random>
 #include <vector>
 
-#include "block_mergesort.hpp"
+#include "block_ranksort.hpp"
 #include "common.hpp"
 
 template <int blockSize, typename T, typename Comp>
-__global__ void __launch_bounds__(blockSize) blockMergeSortKernel(T* a) {
+__global__ void __launch_bounds__(blockSize) blockRankSortKernel(T* a) {
     unsigned gtid = blockDim.x * blockIdx.x + threadIdx.x;
 
-    a[gtid] = alyx::blockMergeSort<blockSize, T, Comp>(a[gtid], Comp{});
+    a[gtid] = alyx::blockRankSort<blockSize, T, Comp>(a[gtid], Comp{});
 }
 
 template <typename T, typename Comp>
@@ -23,8 +23,6 @@ public:
         constexpr std::size_t blockSize = 128;
         std::size_t numElement{gridSize * blockSize};
         std::vector<T> ah(numElement);
-
-        std::iota(ah.begin(), ah.end(), static_cast<T>(1));
 
         std::mt19937 rng(2077);
 
@@ -44,7 +42,7 @@ public:
         CUDA_CHECK(
             cudaMemcpy(ad, ah.data(), numElement * sizeof(T), cudaMemcpyKind::cudaMemcpyDefault));
 
-        blockMergeSortKernel<blockSize, T, Comp><<<gridSize, blockSize>>>(ad);
+        blockRankSortKernel<blockSize, T, Comp><<<gridSize, blockSize>>>(ad);
         CUDA_CHECK(cudaDeviceSynchronize());
 
         CUDA_CHECK(

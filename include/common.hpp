@@ -129,4 +129,20 @@ struct Greater {
     }
 };
 
+template <typename T>
+requires std::is_arithmetic_v<T>
+__host__ __device__ void swap(T& a, T& b) {
+    T tmp{a};
+    a = b;
+    b = tmp;
+}
+
+template <typename T>
+requires std::is_arithmetic_v<T>
+__host__ __device__ void swap(T*& a, T*& b) {
+    T* tmp{a};
+    a = b;
+    b = tmp;
+}
+
 }  // namespace alyx

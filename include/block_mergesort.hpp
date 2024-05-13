@@ -56,6 +56,21 @@ __forceinline__ __device__ T blockMergeSort(T val, Comp&& comp) {
 
     __syncthreads();
 
+// o o o o o o o o  s mergeGroupSize
+// - - - - - - - -  1 2
+// --- --- --- ---  2 4
+// ------- -------  4 8
+// ---------------  8 16
+// s: The size of the current group
+// mergeGroupSize: The total size of a merged group (merging two adjacent current groups)
+// isLeftGroup: Whether the current group is on the left or right in the merge group
+//              Left group: (tid % mergeGroupSize) < s
+//              Right group: (tid % mergeGroupSize) >= s
+// groupStartIdx: The index of the first thread in each group
+//                (tid / s * s) = (tid & -s)
+// mergeGroupStartIdx: The index of the first thread in each merged group
+// spouseGroupStartIdx: The index of the first thread in the other group
+//                      within the merged group
 #pragma unroll
     for (int s = 1; s < blockSize; s = s << 1) {
         int mergeGroupSize = s << 1;
@@ -76,10 +91,10 @@ __forceinline__ __device__ T blockMergeSort(T val, Comp&& comp) {
         int finalRank{selfGroupRank + otherGroupRank};
         smemOut[mergeGroupStartIdx + finalRank] = target;
 
+        // If the current iteration is not the last iteration
+        // (where s is blockSize / 2)
         if (s != (blockSize >> 1)) {
-            auto* smemInCached = smemIn;
-            smemIn = smemOut;
-            smemOut = smemInCached;
+            alyx::swap(smemIn, smemOut);
         }
 
         __syncthreads();
