@@ -62,6 +62,17 @@ add_test(NAME alyx_test_ranksort_memcheck
          WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
          COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-ranksort.bin)
 
+# sleep sort
+add_executable(alyx-test-sleepsort.bin test_sleepsort.cu)
+ALYX_CONFIG_GPU_TARGET(alyx-test-sleepsort.bin)
+
+add_test(NAME alyx_test_sleepsort_basic
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ./alyx-test-sleepsort.bin)
+
+add_test(NAME alyx_test_sleepsort_memcheck
+         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+         COMMAND ${ALYX_CUDA_COMPUTE_SANITIZER} --tool memcheck --leak-check full ./alyx-test-sleepsort.bin)
 
 
 

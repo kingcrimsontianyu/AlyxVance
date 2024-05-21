@@ -19,3 +19,7 @@ AlyxVance is based on C++20 and CUDA 12 or newer.
 + [Mergesort](include/block_mergesort.hpp): Support predefined and user-defined comparators
 
 + [Ranksort](include/block_ranksort.hpp): Support predefined and user-defined comparators
+
++ [Sleep sort](include/block_sleepsort.hpp): A hilarious sorting algorithm stemming from 4chan.
+
+

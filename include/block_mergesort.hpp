@@ -94,7 +94,7 @@ __forceinline__ __device__ T blockMergeSort(T val, Comp&& comp) {
         // If the current iteration is not the last iteration
         // (where s is blockSize / 2)
         if (s != (blockSize >> 1)) {
-            alyx::swap(smemIn, smemOut);
+            swap(smemIn, smemOut);
         }
 
         __syncthreads();
