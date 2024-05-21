@@ -13,7 +13,6 @@ __global__ void __launch_bounds__(blockSize) blockSleepSortKernel(T* a) {
     auto warpIdx = alyx::getWarpIdx();
     auto laneIdx = alyx::getLaneIdx();
 
-    // Only the 1st thread in each warp loads the data
     if (laneIdx == 0) {
         a[warpIdx] = alyx::blockSleepSort<blockSize>(a[warpIdx]);
     }

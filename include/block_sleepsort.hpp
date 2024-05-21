@@ -3,10 +3,19 @@
 #include "common.hpp"
 
 // This method is meant to be funny. The block size is required to be 1024,
-// and the array size be 32. Only the first lane in each warp picks an element
-// and participates in the sorting. This method relies on the flimsy conditions that
-// the 32 warps in the block run concurrently and the spin duration does not have
-// excessive uncertainty. As such, this method does not guarantee to work reliably.
+// and the array size be 32. It is required that only the first lane in each warp pick an element
+// and participate in the sorting. This method relies on the flimsy condition that the 32
+// warps in the block run concurrently and the spin duration does not have excessive uncertainty. As
+// such, this method does not guarantee to work reliably.
+//
+// Sample usage:
+//
+// // In device code:
+// auto warpIdx = alyx::getWarpIdx();
+// auto laneIdx = alyx::getLaneIdx();
+// if (laneIdx == 0) {
+//     a[warpIdx] = alyx::blockSleepSort<blockSize>(a[warpIdx]);
+// }
 
 namespace alyx {
 
